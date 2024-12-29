@@ -1,0 +1,52 @@
+name: image-build
+
+on:
+  push:
+    branches: 
+      - main
+  pull_request:
+    branches: 
+      - main
+  repository_dispatch:
+    types: [trigger-build]
+  workflow_dispatch: # Allows manual triggering
+
+env:
+  USER: ${{secrets.DOCKERHUB_USERNAME}}
+
+jobs:
+  docker_build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            arch: amd64
+          - os: ubuntu-22.04-arm
+            arch: arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+      - name: Build and push
+        run: |
+            docker build --tag ${{secrets.DOCKERHUB_USERNAME}}/docker-uname:${{matrix.arch}}  .
+            docker push ${{secrets.DOCKERHUB_USERNAME}}/docker-uname:${{matrix.arch}}
+
+  docker_manifest:
+    needs: docker_build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+      - name: Create and push manifest
+        run: |
+            docker manifest create ${{secrets.DOCKERHUB_USERNAME}}/docker-uname ${{secrets.DOCKERHUB_USERNAME}}/docker-uname:amd64 ${{secrets.DOCKERHUB_USERNAME}}/docker-uname:arm64
+            docker manifest push ${{secrets.DOCKERHUB_USERNAME}}/docker-uname
