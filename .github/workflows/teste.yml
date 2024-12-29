@@ -1,5 +1,4 @@
-name: image-build
-
+name: Deploy Production
 on:
   push:
     branches: 
@@ -11,42 +10,34 @@ on:
     types: [trigger-build]
   workflow_dispatch: # Allows manual triggering
 
-env:
-  USER: ${{secrets.DOCKERHUB_USERNAME}}
-
 jobs:
-  docker_build:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            arch: amd64
-          - os: ubuntu-22.04-arm
-            arch: arm64
+  build-and-push-docker:
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
+      - uses: actions/checkout@v2
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      - name: Cache Docker layers
+        uses: actions/cache@v2
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+      - name: Login to Docker Hub
+        uses: docker/login-action@v1
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
       - name: Build and push
-        run: |
-            docker build --tag ${{secrets.DOCKERHUB_USERNAME}}/docker-uname:${{matrix.arch}}  .
-            docker push ${{secrets.DOCKERHUB_USERNAME}}/docker-uname:${{matrix.arch}}
-
-  docker_manifest:
-    needs: docker_build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/build-push-action@v2
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_PASSWORD }}
-      - name: Create and push manifest
-        run: |
-            docker manifest create ${{secrets.DOCKERHUB_USERNAME}}/docker-uname ${{secrets.DOCKERHUB_USERNAME}}/docker-uname:amd64 ${{secrets.DOCKERHUB_USERNAME}}/docker-uname:arm64
-            docker manifest push ${{secrets.DOCKERHUB_USERNAME}}/docker-uname
+          context: .
+          #file: ./Dockerfile
+          push: true
+          tags: albeson/qbittorrent-filebot:latest,albeson/qbittorrent-filebot:${{ github.run_number }}
+          platforms: linux/amd64,linux/arm64/v8
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache
