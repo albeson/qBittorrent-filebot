@@ -3,7 +3,7 @@ FROM linuxserver/qbittorrent
 RUN	apk update \
 	&& apk upgrade \
 	&& apk add --no-progress --no-cache chromaprint openjdk11 openjdk11-jre zlib-dev libzen \
-	libzen-dev libmediainfo libmediainfo-dev \
+	libzen-dev libmediainfo libmediainfo-dev libjna \
 	&& mkdir -p /filebot /config/filebot/logs /downloads \
 	&& cd /filebot \
 	&& FILEBOT_VER=$(curl -s https://get.filebot.net/filebot/ | grep -o "FileBot_[0-9].[0-9].[0-9]" | sort | tail -n1) \
