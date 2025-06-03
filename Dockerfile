@@ -1,49 +1,33 @@
-FROM linuxserver/qbittorrent
+FROM linuxserver/qbittorrentAdd commentMore actions
 
-# Instalar dependências
-RUN apk update && apk upgrade && apk add --no-cache \
-    chromaprint \
-    openjdk11 \
-    openjdk11-jre \
-    zlib-dev \
-    libzen \
-    libzen-dev \
-    libmediainfo \
-    libmediainfo-dev \
-    libjna \
-    curl \
-    wget \
-    tar \
-    bash
+RUN	apk update \
+	&& apk upgrade \
+	&& apk add --no-progress --no-cache chromaprint openjdk11 openjdk11-jre zlib-dev libzen \
+	libzen-dev libmediainfo libmediainfo-dev \
+	&& mkdir -p /filebot /config/filebot/logs /downloads \
+	&& cd /filebot \
+	&& FILEBOT_VER=$(curl -s https://get.filebot.net/filebot/ | grep -o "FileBot_[0-9].[0-9].[0-9]" | sort | tail -n1) \
+ 	&& wget "https://get.filebot.net/filebot/${FILEBOT_VER}/${FILEBOT_VER}-portable.tar.xz" -O /filebot/filebot.tar.xz \
+	&& tar -xJf filebot.tar.xz \
+	&& rm -rf filebot.tar.xz \
+	# Fix filebot libs
+	&& ln -sf /usr/lib/libzen.so /filebot/lib/Linux-x86_64/libzen.so \
+	&& ln -sf /usr/lib/libmediainfo.so /filebot/lib/Linux-x86_64/libmediainfo.so \
+	&& ln -sf /usr/local/lib/lib7-Zip-JBinding.so /filebot/lib/Linux-x86_64/lib7-Zip-JBinding.so \
+	&& rm -rf /filebot/lib/FreeBSD-amd64 /filebot/lib/Linux-armv7l /filebot/lib/Linux-i686 /filebot/lib/Linux-aarch64
 
-# Criar diretórios
-RUN mkdir -p /filebot /config/filebot/logs /downloads
-
-# Baixar FileBot portátil versão fixa
-ENV FILEBOT_VERSION=FileBot_5.2.3
-
-RUN cd /filebot && \
-    wget "https://get.filebot.net/filebot/${FILEBOT_VERSION}/${FILEBOT_VERSION}-portable.tar.xz" -O filebot.tar.xz && \
-    tar -xJf filebot.tar.xz && \
-    rm filebot.tar.xz
-
-# Linkar bibliotecas necessárias
-RUN ln -sf /usr/lib/libzen.so /filebot/lib/Linux-x86_64/libzen.so && \
-    ln -sf /usr/lib/libmediainfo.so /filebot/lib/Linux-x86_64/libmediainfo.so || true && \
-    rm -rf /filebot/lib/FreeBSD-amd64 \
-           /filebot/lib/Linux-armv7l \
-           /filebot/lib/Linux-i686 \
-           /filebot/lib/Linux-aarch64
-
-# Colocar FileBot no PATH
+# Make Filebot binary runable from everywhere:
 ENV PATH="/filebot:${PATH}"
 
-# UID/GID padrão
+# Set the uid/gid:
 ENV PUID=1000 \
     PGID=1000 \
     WEBUI_PORT=
 
-# Configurações padrão do FileBot
+# Various:
+ENV FILES_CHECK_PERM=n
+
+# Define variables for Filebot:
 ENV FILEBOT_LANG=en \
     FILEBOT_CONFLICT=auto \
     FILEBOT_ACTION=copy \
@@ -56,18 +40,16 @@ ENV FILEBOT_LANG=en \
     FILEBOT_OPTS=-Dnet.filebot.archive.unrar=/usr/bin/unrar \
     EXTRA_FILEBOT_PARAM=
 
-# Diretórios padrão
+# environment settings
 ENV HOME="/data" \
-    XDG_CONFIG_HOME="/data" \
-    XDG_DATA_HOME="/data"
+XDG_CONFIG_HOME="/data" \
+XDG_DATA_HOME="/data"
 
-# Copiar scripts adicionais
+
+# add local files
 COPY root/ /
-RUN chmod +x /etc/cont-init.d/* || true
-
-# Volumes padrão
+RUN chmod +x /etc/cont-init.d/*
 VOLUME ["/data"]
 VOLUME ["/downloads"]
 VOLUME ["/media"]
-
 EXPOSE 8080
