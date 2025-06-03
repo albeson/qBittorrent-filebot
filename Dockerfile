@@ -1,9 +1,7 @@
 FROM linuxserver/qbittorrent
 
-# Instala dependências necessárias + biblioteca JNA
-RUN apk update \
- && apk upgrade \
- && apk add --no-progress --no-cache \
+# Instalar dependências
+RUN apk update && apk upgrade && apk add --no-cache \
     chromaprint \
     openjdk11 \
     openjdk11-jre \
@@ -16,20 +14,28 @@ RUN apk update \
     curl \
     wget \
     tar \
- && mkdir -p /filebot /config/filebot/logs /downloads \
- && cd /filebot \
- && FILEBOT_VER=$(curl -s https://get.filebot.net/filebot/ | grep -o "FileBot_[0-9].[0-9].[0-9]" | sort | tail -n1) \
- && wget "https://get.filebot.net/filebot/${FILEBOT_VER}/${FILEBOT_VER}-portable.tar.xz" -O /filebot/filebot.tar.xz \
- && tar -xJf filebot.tar.xz \
- && rm -rf filebot.tar.xz \
- \
- # Corrige bibliotecas nativas para FileBot
- && ln -sf /usr/lib/libzen.so /filebot/lib/Linux-x86_64/libzen.so \
- && ln -sf /usr/lib/libmediainfo.so /filebot/lib/Linux-x86_64/libmediainfo.so \
- && ln -sf /usr/local/lib/lib7-Zip-JBinding.so /filebot/lib/Linux-x86_64/lib7-Zip-JBinding.so \
- && rm -rf /filebot/lib/FreeBSD-amd64 /filebot/lib/Linux-armv7l /filebot/lib/Linux-i686 /filebot/lib/Linux-aarch64
+    bash
 
-# Torna o FileBot acessível globalmente
+# Criar diretórios
+RUN mkdir -p /filebot /config/filebot/logs /downloads
+
+# Baixar FileBot portátil versão fixa
+ENV FILEBOT_VERSION=FileBot_5.2.3
+
+RUN cd /filebot && \
+    wget "https://get.filebot.net/filebot/${FILEBOT_VERSION}/${FILEBOT_VERSION}-portable.tar.xz" -O filebot.tar.xz && \
+    tar -xJf filebot.tar.xz && \
+    rm filebot.tar.xz
+
+# Linkar bibliotecas necessárias
+RUN ln -sf /usr/lib/libzen.so /filebot/lib/Linux-x86_64/libzen.so && \
+    ln -sf /usr/lib/libmediainfo.so /filebot/lib/Linux-x86_64/libmediainfo.so || true && \
+    rm -rf /filebot/lib/FreeBSD-amd64 \
+           /filebot/lib/Linux-armv7l \
+           /filebot/lib/Linux-i686 \
+           /filebot/lib/Linux-aarch64
+
+# Colocar FileBot no PATH
 ENV PATH="/filebot:${PATH}"
 
 # UID/GID padrão
@@ -37,7 +43,7 @@ ENV PUID=1000 \
     PGID=1000 \
     WEBUI_PORT=
 
-# Configurações gerais do FileBot
+# Configurações padrão do FileBot
 ENV FILEBOT_LANG=en \
     FILEBOT_CONFLICT=auto \
     FILEBOT_ACTION=copy \
@@ -50,19 +56,18 @@ ENV FILEBOT_LANG=en \
     FILEBOT_OPTS=-Dnet.filebot.archive.unrar=/usr/bin/unrar \
     EXTRA_FILEBOT_PARAM=
 
-# Variáveis de ambiente para config/cache do FileBot
+# Diretórios padrão
 ENV HOME="/data" \
     XDG_CONFIG_HOME="/data" \
     XDG_DATA_HOME="/data"
 
-# Adiciona scripts locais se existirem
+# Copiar scripts adicionais
 COPY root/ /
-RUN chmod +x /etc/cont-init.d/*
+RUN chmod +x /etc/cont-init.d/* || true
 
-# Monta volumes padrão
+# Volumes padrão
 VOLUME ["/data"]
 VOLUME ["/downloads"]
 VOLUME ["/media"]
 
-# Expõe a porta da WebUI do qBittorrent
 EXPOSE 8080
