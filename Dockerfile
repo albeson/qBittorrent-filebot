@@ -1,4 +1,4 @@
-FROM linuxserver/qbittorrentAdd commentMore actions
+FROM linuxserver/qbittorrent
 
 RUN	apk update \
 	&& apk upgrade \
@@ -46,7 +46,7 @@ XDG_CONFIG_HOME="/data" \
 XDG_DATA_HOME="/data"
 
 
-# add local files
+# add local files
 COPY root/ /
 RUN chmod +x /etc/cont-init.d/*
 VOLUME ["/data"]
